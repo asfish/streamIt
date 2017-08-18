@@ -5,3 +5,6 @@ Try all the other Dstream operations:
 
 The link for list of these operations:
     https://spark.apache.org/docs/latest/streaming-programming-guide.html
+
+For more spark streaming examples with different types of source:
+    https://github.com/apache/spark/tree/master/examples/src/main/java/org/apache/spark/examples/streaming
