@@ -1,0 +1,7 @@
+Try all the other Dstream operations:
+    1. Transformation operations
+    2. window operations
+    3. output operations
+
+The link for list of these operations:
+    https://spark.apache.org/docs/latest/streaming-programming-guide.html

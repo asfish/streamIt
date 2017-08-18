@@ -1,10 +1,10 @@
 package com.spark.streaming.tcp.socket;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-
-import com.google.common.base.Optional;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -12,8 +12,11 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 
 import org.apache.spark.api.java.function.Function2;
+import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.api.java.function.PairFunction;
+import org.apache.spark.api.java.Optional;
 
+import org.apache.spark.api.java.function.VoidFunction2;
 import org.apache.spark.streaming.Time;
 import org.apache.spark.streaming.Duration;
 import org.apache.spark.streaming.Durations;
@@ -28,7 +31,6 @@ import scala.Tuple2;
  */
 public class EventCollectionStreaming
 {
-	/*
 	private static final String HOST = "localhost";
 	private static final int PORT = 9999;
 	private static final String CHECKPOINT_DIR = "/tmp";
@@ -57,21 +59,20 @@ public class EventCollectionStreaming
 				}
 			}
 		);
-
 		// Print new events received in this batch
-		events.foreachRDD(
-			new Function2<JavaPairRDD<String, String>, Time, Void>() {
-				@Override
-				public Void call(JavaPairRDD<String, String> newEventsRdd, Time time)
-					throws Exception {
-					System.out.println("\n===================================");
-					System.out.println("New Events for " + time + " batch:");
-					for (Tuple2<String, String> tuple : newEventsRdd.collect()) {
-						System.out.println(tuple._1 + ": " + tuple._2);
-					}
-					return null;
+		events.foreachRDD(new VoidFunction2<JavaPairRDD<String, String>, Time>()
+		{
+			@Override
+			public void call(JavaPairRDD<String, String> newEventsRdd, Time time) throws Exception
+			{
+				System.out.println("\n===================================");
+				System.out.println("New Events for " + time + " batch:");
+				for (Tuple2<String, String> tuple : newEventsRdd.collect())
+				{
+					System.out.println(tuple._1 + ": " + tuple._2);
 				}
-			});
+			}
+		});
 
 		// Combine new events with a running total of events for each user.
 		// userTotals holds pairs of (user, map of event to number of occurrences
@@ -96,9 +97,9 @@ public class EventCollectionStreaming
 				});
 
 		userTotals.foreachRDD(
-			new Function2<JavaPairRDD<String, Map<String, Long>>, Time, Void>() {
+			new VoidFunction2<JavaPairRDD<String, Map<String, Long>>, Time>() {
 				@Override
-				public Void call(JavaPairRDD<String, Map<String, Long>> userTotals,
+				public void call(JavaPairRDD<String, Map<String, Long>> userTotals,
 				                 Time time) throws Exception {
 					// Instead of printing this would be a good place to do
 					// something like writing the aggregation to a database
@@ -110,13 +111,40 @@ public class EventCollectionStreaming
 						System.out.println(String.format("%s: %s",
 							userData.getKey(), userData.getValue()));
 					}
-					return null;
 				}
 			});
 
+		// aggregating the data across all users:
+		// siteTotals holds the total number of each event that has occurred across all users.
+		JavaPairDStream<String, Long> siteTotals = userTotals.flatMapToPair(
+            new PairFlatMapFunction<Tuple2<String, Map<String, Long>>, String, Long>() {
+            @Override
+            public Iterator<Tuple2<String, Long>> call(Tuple2<String,
+                    Map<String, Long>> userEvents) throws Exception {
+                List<Tuple2<String, Long>> eventCounts = new ArrayList<>();
+                for (Map.Entry<String, Long> entry : userEvents._2.entrySet()) {
+                    eventCounts.add(new Tuple2<>(entry.getKey(), entry.getValue()));
+                }
+                return eventCounts.iterator();
+            }
+        }).reduceByKey(
+        new Function2<Long, Long, Long>() {
+            @Override
+            public Long call(Long left, Long right) throws Exception {
+                return left + right;
+            }
+        });
+
+		siteTotals.print();
 
 		streamingContext.start();
-		streamingContext.awaitTermination();
+
+		try
+		{
+			streamingContext.awaitTermination();
+		} catch (InterruptedException e)
+		{
+			e.printStackTrace();
+		}
 	}
-*/
 }
